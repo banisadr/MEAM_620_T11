@@ -1,0 +1,446 @@
+#+AUTHOR: Carlos HMS Esteves
+#+TITLE: MEAM-620 Project 1 Phase 2
+#+PROPERTY: header-args :results silent :session
+* setup
+#+BEGIN_SRC matlab
+cd ~/phd/classes/meam620/project1/phase2/studentcode/;
+#+END_SRC
+#+BEGIN_SRC elisp
+(setq org-confirm-babel-evaluate nil)
+#+END_SRC
+* resources
+** from piazza
+- Yes, you need to ensure that the start and end points are valid (see @133).
+* map
+** make map
+#+BEGIN_SRC matlab
+fid = fopen(filename);
+boundary = textscan(fid, '%*s %f %f %f %f %f %f', 1);
+blocks = textscan(fid, '%*s %f %f %f %f %f %f %d %d %d');
+fclose(fid);
+
+map.boundary = cell2mat(boundary);
+map.block = cell2mat(blocks(1:6));
+map.block_color = cell2mat(blocks(7:9));
+
+% list of possible x, y, z of node positions
+% we avoid an ndgrid to save memory; this makes the code uglier and
+% forbids us to use nice functions like interp3
+% TODO: add res to final position to avoid creating smalller map
+%       but it will create larger map if size is multiple of resolution
+map.x = map.boundary(1):xy_res:map.boundary(4);
+map.y = map.boundary(2):xy_res:map.boundary(5);
+map.z = map.boundary(3):z_res:map.boundary(6);
+
+nx = numel(map.x);
+ny = numel(map.y);
+nz = numel(map.z);
+map.dims = [nx, ny, nz];
+n = prod(map.dims); % total number of cells
+
+% index
+dx = sub2ind(map.dims, 2, 1, 1) - sub2ind(map.dims, 1, 1, 1);
+dy = sub2ind(map.dims, 1, 2, 1) - sub2ind(map.dims, 1, 1, 1);
+dz = sub2ind(map.dims, 1, 1, 2) - sub2ind(map.dims, 1, 1, 1);
+
+% horizontal connections
+edges = [(1:n-dx)' (1+dx:n)'];
+% vertical
+edges = [edges; (1:n-dy)' (1+dy:n)'];
+% depth
+edges = [edges; (1:n-dz)' (1+dz:n)'];
+
+% create adjacency matrix
+map.graph = sparse(edges(:,1), edges(:,2), ones(size(edges,1), 1), n, n);
+% the matrix has a few extra connections that must be eliminated
+% for instance, a point on the rightmost column is connected to
+% the leftmost point of the next line
+% TODO: perhaps we can make this more efficient and/or more readable...
+for i=nx:nx:(n-dx)
+    map.graph(i, i+dx) = 0;
+end
+for i=(nx*ny):(nx*ny):(n-1)
+    for j=1:nx
+        map.graph(i-j+1, i-j+1+dy) = 0;
+    end
+end
+
+map.graph = map.graph + map.graph'; % make it symmetric
+
+#+END_SRC
+** plot projections
+#+BEGIN_SRC matlab
+% debug
+map = load_map('sample_maps/map0.txt', 1, 1, .3);
+nx = numel(map.x);
+ny = numel(map.y);
+nz = numel(map.z);
+map.dims = [nx, ny, nz];
+n = prod(map.dims); % total number of cells
+
+% index
+dx = sub2ind(map.dims, 2, 1, 1) - sub2ind(map.dims, 1, 1, 1);
+dy = sub2ind(map.dims, 1, 2, 1) - sub2ind(map.dims, 1, 1, 1);
+dz = sub2ind(map.dims, 1, 1, 2) - sub2ind(map.dims, 1, 1, 1);
+
+[x_, y_, z_] = ndgrid(map.x, map.y, map.z);
+figure; gplot(map.graph, [x_(:), y_(:)]); title('x y');
+figure; gplot(map.graph, [x_(:), z_(:)]); title('x z');
+figure; gplot(map.graph, [y_(:), z_(:)]); title('y z');
+#+END_SRC
+** run + plot
+#+BEGIN_SRC matlab
+map = load_map('sample_maps/map0.txt', 2.5, 1, 2);
+plot_3dgraph(map); title('map 0');
+
+map = load_map('sample_maps/map1.txt', 1, 1, 0);
+plot_3dgraph(map); title('map 1');
+#+END_SRC
+** check performance
+#+BEGIN_SRC  matlab
+mapfile = 'sample_maps/map0.txt'
+tic;
+map = load_map(mapfile, 1, 1, 2);
+disp(sprintf('1, 1, 2: %.2f s',toc));
+tic;
+map = load_map(mapfile, 0.5, 0.5, 2);
+disp(sprintf('0.5, 0.5, 2: %.2f',toc));
+tic;
+map = load_map(mapfile, 0.5, 0.1, 2);
+disp(sprintf('0.5, 0.1, 2: %.2f',toc));
+tic;
+map = load_map(mapfile, 0.25, 0.1, 2);
+disp(sprintf('0.5, 0.1, 2: %.2f',toc));
+#+END_SRC
+** removing block
+* A*
+** run simple
+#+BEGIN_SRC matlab
+map = load_map('sample_maps/map0.txt', 0.2, 1.0, 0.3);
+start = [5 1.2 4];
+stop = [5 14 4];
+[path, n] = dijkstra(map, start, stop, true);
+disp(sprintf('Expanded: %d', n));
+plot_path(map, path);
+#+END_SRC
+** test map1
+#+BEGIN_SRC matlab
+map = load_map('sample_maps/map1.txt', 0.2, 1.0, 0.3);
+start = [0,0,5];
+stop = [19,0,5];
+[path, n] = dijkstra(map, start, stop, true);
+disp(sprintf('Expanded: %d', n));
+plot_path(map, path);
+#+END_SRC
+** longer path
+#+BEGIN_SRC matlab
+map = load_map('sample_maps/map0.txt', 0.2, 1.0, 0.3);
+start = [0.0  -4.9 0.2];
+stop  = [8.0  18.0 3.0];
+
+% plot_path(map, path);
+% hold on; plot3(start(1), start(2), start(3), 'bo');
+% hold on; plot3(stop(1), stop(2), stop(3), 'bo');
+
+[path, n] = dijkstra(map, start, stop,true);
+pathlen = @(p) sum(sqrt(sum(diff(p).^2,2)));
+disp(sprintf('Expanded: %d; length: %.4f', n, pathlen(path)));
+plot_path(map, path);
+#+END_SRC
+** possible infinite loop in impossible cases
+#+BEGIN_SRC matlab
+map = load_map('sample_maps/map1.txt', 0.2, 1.0, 0.3);
+
+% these are all impossible
+startpts = [(map.block(:,1) + map.block(:,4))/2 ...
+            (map.block(:,2) + map.block(:,5))/2 ...
+            (map.block(:,3) + map.block(:,6))/2];
+i=1
+
+start = startpts(i,:);
+stop = [19,0,5];
+path = dijkstra(map, start, stop, true);
+verifyTrue(isempty, path);
+
+#+END_SRC
+
+** plotting issues
+*** test plot
+#+BEGIN_SRC  matlab
+% compare A* and Dijkstra speeds and paths
+map = load_map('sample_maps/map0.txt', 0.2, 0.5, 0);
+
+tic;
+[path_a, n_a] = dijkstra(map, [0,0,0], [2,18,2], true);
+disp(sprintf('A*: n_path=%d, n_visited=%d, t=%.2f', size(path_a,1), n_a, toc));
+tic;
+[path_d, n_d] = dijkstra(map, [0,0,0], [2,18,2]);
+disp(sprintf('Dijkstra: n_path=%d, n=%d, t=%.2f', size(path_d,1), n_d, toc));
+plot_path(map, path_a);
+#+END_SRC
+*** patch is apparently not plotting small surfaces
+#+BEGIN_SRC matlab
+pts = [    3.0624    1.9169    5.2347;
+           -0.2347    1.9169    5.2347;
+           3.0624    3.9376    5.2347;
+           -0.2347    3.9376    5.2347;
+           3.0624    1.9169    6.1831;
+           -0.2347    1.9169    6.1831;
+           3.0624    3.9376    6.1831;
+           -0.2347    3.9376    6.1831];
+figure;
+pf = pts([1,3,7,5], :);
+patch(pf(:,1), pf(:,2), pf(:,3), [1,0,0]);
+pf = pts([2,4,8,6], :);
+patch(pf(:,1), pf(:,2), pf(:,3), [1,0,0]);
+pf = pts([1,2,6,5], :);
+patch(pf(:,1), pf(:,2), pf(:,3), [1,0,0]);
+pf = pts([3,4,8,7], :);
+patch(pf(:,1), pf(:,2), pf(:,3), [1,0,0]);
+pf = pts([1,2,4,3], :);
+patch(pf(:,1), pf(:,2), pf(:,3), [1,0,0]);
+pf = pts([5,6,8,7], :);
+patch(pf(:,1), pf(:,2), pf(:,3), [1,0,0]);
+
+#+END_SRC
+*** margin make plots ugly
+#+BEGIN_SRC matlab
+margin = 0.3;
+
+filename = 'sample_maps/map0.txt';
+fid = fopen(filename);
+% TODO: ignore comments!
+boundary = textscan(fid, '%*s %f %f %f %f %f %f', 1);
+blocks = textscan(fid, '%*s %f %f %f %f %f %f %d %d %d');
+fclose(fid);
+
+boundary = cell2mat(boundary);
+block = cell2mat(blocks(1:6));
+
+faces = [1,3,7,5;
+2,4,8,6;
+1,2,6,5;
+3,4,8,7;
+1,2,4,3;
+5,6,8,7];
+
+i=1;
+blk = block(i,:);
+[x,y,z] = ndgrid([blk(1), blk(4)],[blk(2), blk(5)],[blk(3), blk(6)]);
+pts = [x(:) y(:) z(:)];
+
+figure;
+axis(boundary([1,4,2,5,3,6]));
+patch('Faces', faces, 'Vertices', pts, 'FaceColor', [1,0,0])
+
+% p1 = block(i, 1:3);
+% p2 = block(i, 4:6);
+% u = (p2-p1)/norm(p2-p1);
+% block(i, :) = [p1-margin*u p2+margin*u];
+
+% add margins
+block(i, :) = [block(i, 1:3)-margin block(i, 4:6)+margin];
+% block(i, :) = margin+block(i, :);
+
+blk = block(i, :);
+[x,y,z] = ndgrid([blk(1), blk(4)],[blk(2), blk(5)],[blk(3), blk(6)]);
+pts = [x(:) y(:) z(:)];
+
+figure;
+axis(boundary([1,4,2,5,3,6]));
+patch('Faces', faces, 'Vertices', pts, 'FaceColor', [1,0,0]);
+#+END_SRC
+**** plot w/ and w/o margins
+#+BEGIN_SRC matlab
+plot_path(load_map('sample_maps/map0.txt', 0.2, 0.5, 0), []);
+plot_path(load_map('sample_maps/map0.txt', 0.2, 0.5, 0.5), []);
+plot_path(load_map('sample_maps/map0.txt', 0.2, 0.5, 1), []);
+
+plot_path(load_map('sample_maps/map1.txt', 0.2, 0.5, 0), []);
+plot_path(load_map('sample_maps/map1.txt', 0.2, 0.5, 0.5), []);
+plot_path(load_map('sample_maps/map1.txt', 0.2, 0.5, 1), []);
+#+END_SRC
+* performance
+#+BEGIN_SRC matlab
+map = load_map('sample_maps/map0.txt', 0.2, 1.0, 0.3);
+start = [0.0  -4.9 0.2];
+stop  = [8.0  18.0 3.0];
+tic;
+[path, n] = dijkstra(map, start, stop, true);
+disp(sprintf('A*: n_path=%d, n_visited=%d, t=%.2f', size(path,1), n, toc));
+
+profile on;
+map = load_map('sample_maps/map0.txt', 0.1, 1.0, 0.3);
+profile report;
+
+tic;
+profile on;
+[path, n] = dijkstra(map, start, stop, true);
+disp(sprintf('A*: n_path=%d, n_visited=%d, t=%.2f', size(path,1), n, toc));
+profile report;
+#+END_SRC
+** check best way to find min in a vector
+#+BEGIN_SRC matlab
+N = 1e8;
+m = 1e3;
+ids = randperm(N);
+vec = rand(1e8,1);
+vec(ids) = inf;
+
+tic;
+for(i=1:100)
+  min(vec);
+end
+toc;
+#+END_SRC
+* tests with/without A* (fine)
+#+BEGIN_SRC matlab
+map = load_map('sample_maps/map0.txt', 0.1, 1.0, 0.3);
+start = [0.0  -4.9 0.2];
+stop  = [8.0  18.0 3.0];
+tic;
+[path, n] = dijkstra(map, start, stop);
+disp(sprintf('Dij: n_path=%d, n_visited=%d, t=%.2f', size(path,1), n, toc));
+
+tic;
+[path, n] = dijkstra(map, start, stop, true);
+disp(sprintf('A*: n_path=%d, n_visited=%d, t=%.2f', size(path,1), n, toc));
+#+END_SRC
+* load map w/ comments
+#+BEGIN_SRC matlab
+map = load_map('sample_maps/map0_comment.txt', 0.1, 1.0, 0.3);
+tic;
+[path, n] = dijkstra(map, start, stop, true);
+disp(sprintf('A*: n_path=%d, n_visited=%d, t=%.2f', size(path,1), n, toc));
+#+END_SRC
+* compare path len A* and Dij
+#+BEGIN_SRC matlab
+map = load_map('sample_maps/map0.txt', 0.2, 1.0, 0.3);
+start = [0.0  -4.9 0.2];
+stop  = [8.0  18.0 3.0];
+[path_d, n_d] = dijkstra(map, start, stop);
+[path_a, n_a] = dijkstra(map, start, stop, true);
+
+pathlen = @(p) sum(sqrt(sum(diff(p).^2,2)));
+
+disp(sprintf('Dij: n_path=%d, n_visited=%d, len: %.2f', size(path_d,1), n_d, pathlen(path_d)));
+disp(sprintf('A*: n_path=%d, n_visited=%d, len=%.2f', size(path_a,1), n_a, pathlen(path_a)));
+
+#+END_SRC
+** with clean map
+#+BEGIN_SRC matlab
+map = load_map('sample_maps/map_clean.txt', 0.2, 1.0, 0.3);
+
+starts = [0,0,5;
+          5,2,3;
+          2,4,3;
+          6,0,0;
+          20,5,6];
+
+stops = [1,3,1;
+         5,4.9,5.9;
+         4,4.9,5;
+         20,5,6;
+         0,0,0];
+
+i=4;
+start = starts(i,:);
+stop = stops(i,:);
+[path_d, n_d] = dijkstra(map, start, stop);
+[path_a, n_a] = dijkstra(map, start, stop, true);
+
+pathlen = @(p) sum(sqrt(sum(diff(p).^2,2)));
+
+disp(sprintf('Dij: n_path=%d, n_visited=%d, len: %.4f', size(path_d,1), n_d, pathlen(path_d)));
+disp(sprintf('A*: n_path=%d, n_visited=%d, len=%.4f', size(path_a,1), n_a, pathlen(path_a)));
+
+% pathlen(path_d) - pathlen(path_a)
+% pathlen(path_d(2:end,:)) - pathlen(path_a(2:end, :))
+
+% [path_d(1:3,:) path_a(1:3,:)]
+% [path_d(end-3:end,:) path_a(end-3:end,:)]
+#+END_SRC
+* more tests (check different resolutions and so on)
+#+BEGIN_SRC matlab
+% try different resolutions and margins
+xy = [0.1, 0.5, 1];
+z = [0.5, 1, 2];
+margin = [0, 0.1, 0.5];
+
+map = load_map('sample_maps/map1.txt', xy(3), z(3), margin(1));
+start = [0,0,5];
+stop = [19,0,5];
+path = dijkstra(map,start,stop,true);
+plot_path(map, path);
+
+#+END_SRC
+* other map
+#+BEGIN_SRC matlab
+map = load_map('/home/pinguim/Downloads/tmp/studentcode/maps/map4.txt', 0.1, 2.0, 0.3);
+start= [1,5,1.5];
+stop = [9,7,1.5];
+path = dijkstra(map,start,stop,true);
+plot_path(map, path);
+hold on;
+plot3(start(1), start(2), start(3), 'go');
+plot3(stop(1), stop(2), stop(3), 'ro');
+#+END_SRC
+
+#+BEGIN_SRC matlab
+map = load_map('/home/pinguim/Downloads/tmp/studentcode/maps/map2.txt', 0.1, 2.0, 0.3);
+start= [5,1,1];
+stop = [5,29,1];
+path = dijkstra(map,start,stop,true);
+plot_path(map, path);
+#+END_SRC
+
+* test results
+** [2016-02-08 Mon] 23:00
+machc
+
+   collide_test
+      testEmptyMap .......................................... passed in     0.379221 seconds
+      testFullMap ........................................... passed in     0.301755 seconds
+      testSingleCube ........................................ passed in     4.877439 seconds
+      testMap1 .............................................. passed in     0.492440 seconds
+   collide_test ............................................. passed in     6.060046 seconds
+
+
+   dijkstra_test
+      testMap1 .............................................. passed in    18.141806 seconds
+      testEmptyMap .......................................... FAILED in     0.011192 seconds
+      testDiscretization .................................... passed in     0.521595 seconds
+      testAstarSameDistance ................................. FAILED in     2.297654 seconds
+      testMap2 .............................................. FAILED in     3.009555 seconds
+   dijkstra_test ............................................ FAILED in    23.983313 seconds
+
+machc ....................................................... FAILED in    30.125918 seconds
+* TODO check test failing after including xz diagonals (A* gives bad paths...)
+================================================================================
+Verification failed in dijkstra_test/testMap0.
+
+    ---------------------
+    Framework Diagnostic:
+    ---------------------
+    verifyEqual failed.
+    --> The values are not equal using "isequaln".
+    --> The error was not within absolute tolerance.
+    --> Failure table:
+                Index         Actual             Expected              Error            RelativeError       AbsoluteTolerance
+                _____    ________________    ________________    _________________    __________________    _________________
+            
+                1        33.9598850177474    32.9707693469522    0.989115670795243    0.0299997752671997    1e-06            
+    
+    Actual double:
+          33.959885017747432
+    Expected double:
+          32.970769346952189
+
+    ------------------
+    Stack Information:
+    ------------------
+    In /home/pinguim/phd/classes/meam620/project1/phase2/studentcode/dijkstra_test.m (compareDijkstraAstar) at 25
+    In /home/pinguim/phd/classes/meam620/project1/phase2/studentcode/dijkstra_test.m (testMap0) at 35
+* TODO check invalidation of cells due to blocks -- some illegal moves may be allowed
+- for instance, both closest nodes are far from the block, but line between them touches the block
+- I've seen this happen in map1,

@@ -1,0 +1,57 @@
+                ________________________________________
+
+                 MEAM-620 SPRING 2016 PROJECT 1 PHASE 1
+
+                           Carlos HMS Esteves
+                ________________________________________
+
+1 Trajectory design
+===================
+
+  The trajectories were modelled as a polynomial of degree 5 for the
+  position. For the circular trajectory, we project the 1-D positions,
+  velocities and accelerations given by the polynomial to the desired
+  3-D shape. For the diamond, we break the trajectory in 4 legs and the
+  velocities and accelerations are made 0 at the end of each leg. The
+  only parameter used is the time required to complete the
+  trajectory. The desirable trade-off between speed and accuracy may be
+  selected by changing the time parameter.
+
+
+2 Controller design
+===================
+
+  We used MATLAB `pidtune' to find the gains. For the attitude
+  controller a crossover frequency of 10 Hz and phase margin of 45 deg
+  were selected. For the position references a crossover frequency of 1
+  Hz and phase margin of 75 deg were selected. The following code was
+  used to find the gains that were used in the submission.
+
+  ,----
+  | % angular
+  | wc = 10*2*pi; % cross over freq (bw)
+  | phasemargin = 45;
+  | 
+  | phi = tf(1, [I(1,1) 0 0]);
+  | theta = tf(1, [I(2,2) 0 0]);
+  | psi = tf(1, [I(3,3) 0 0]);
+  | [C, info] = pidtune(phi, 'pd', wc, pidtuneOptions('PhaseMargin', phasemargin))
+  | [C, info] = pidtune(theta, 'pd', wc, pidtuneOptions('PhaseMargin', phasemargin))
+  | [C, info] = pidtune(psi, 'pd', wc, pidtuneOptions('PhaseMargin', phasemargin))
+  `----
+
+  ,----
+  | wc = 1*2*pi; % cross over freq (bw)
+  | phasemargin = 75;
+  | pos = tf(1, [1 0 0]);
+  | [C, info] = pidtune(pos, 'pd', wc, pidtuneOptions('PhaseMargin', phasemargin, ...
+  |                                                   'DesignFocus', 'reference-tracking'))
+  `----
+
+  We tried using LQR to design the controllers but results were not so
+  good, probably because the $Q$ and $R$ matrices were not sensible. We
+  also attempted to project the position error away from the trajectory
+  tangent and to use a nonlinear guidance (using the sines and cosines
+  instead of small angle approximations, with the same gains). The
+  results didn't change much with these modifications, further
+  performance evaluation should be done to assess their effects.
