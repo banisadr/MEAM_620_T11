@@ -174,7 +174,7 @@ if isempty(t) && isempty(qn)
     [times, pos, vel, acc] = fit_traj(knots_t, path, TSTEP);
 
     % for extrapolation
-    times = [times,times(end)+1,times(end)+2];
+    times = [times,times(end)+TSTEP,times(end)+2];
     pos = [pos; pos(end,:); pos(end,:)];
     vel = [vel; zeros([2,3])];
     acc = [acc; zeros([2,3])];
