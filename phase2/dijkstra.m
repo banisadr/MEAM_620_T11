@@ -13,7 +13,7 @@ function [path, num_expanded] = dijkstra(map, start, goal, astar)
 %   [PATH, NUM_EXPANDED] = DIJKSTRA(...) returns the path as well as
 %   the number of points that were visited while performing the search.
 
-    SIMPLE_TRAJ = false;
+    SIMPLE_TRAJ = true;
     EPS = 1e-3;
 
     if nargin < 4
