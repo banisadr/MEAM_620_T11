@@ -17,9 +17,8 @@ for c=1:numquads
     seq(end).time = t_inf;%this tells the quad to hover until another message is received
     
     %PUT OTHER FIELDS HERE
-    
-    
-    
+    % send position offset to controller
+    seq(end).hoverheight = 1;
     %END OTHER FIELDS HERE
     
     seqM(c).seq = seq; %the variable seqM is a struct with metadata about the sequence
