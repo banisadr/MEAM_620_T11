@@ -1,4 +1,4 @@
-function [ desired_state ] = trajectory_generator(t, qn, map, path)
+function [timelist, pos, vel, acc] = trajectory_generator(t, qn, map, path)
 % TRAJECTORY_GENERATOR: Turn a Dijkstra or A* path into a trajectory
 %
 % NOTE: This function would be called with variable number of input
@@ -22,19 +22,17 @@ function [ desired_state ] = trajectory_generator(t, qn, map, path)
 % WARNING: djikstra.m must also have this option on!!!
 SIMPLE_TRAJ = false;
 AVGSPEED = 10;
-MAXACC = 4; % passed all tests with 4
+MAXACC = 3; % passed all tests with 4
 TSTEP = 1e-2; % to store traj
+TEXTRAP = 600; % how long to maintain last command
 EPS = 1e-6;
-
-persistent map0 path0
-persistent times pos vel acc
 
 if isempty(t) && isempty(qn)
     % init call
     map0 = map;
     path0 = path;
 
-    times = [];
+    timelist = [];
     pos = [];
     vel = [];
     acc = [];
@@ -46,14 +44,14 @@ if isempty(t) && isempty(qn)
     if isempty(path)
         return;
     elseif size(path,1) == 1
-        times = [0, 1];
+        timelist = [0, 1];
         pos = [path; path];
         vel = [0,0,0; 0,0,0];
         acc = [0,0,0; 0,0,0];
         return
     end
 
-    %% simpler trajectory: start/stop at each
+    %% simpler trajectory: start/stop at each point
     if SIMPLE_TRAJ
         MINSPEED = .1;
         MAXACC = 4;
@@ -81,107 +79,123 @@ if isempty(t) && isempty(qn)
             end
 
             [curr_t, curr_p, curr_v, curr_a] = fit_traj([0,T], [path(i,:); path(i+1,:)], TSTEP);
-            if isempty(times)
-                times = [times, curr_t];
+            if isempty(timelist)
+                timelist = [timelist, curr_t];
             else
-                times = [times, times(end)+TSTEP+curr_t];
+                timelist = [timelist, timelist(end)+TSTEP+curr_t];
             end
             pos = [pos; curr_p];
             vel = [vel; curr_v];
             acc = [acc; curr_a];
         end
-        return;
-    end
-
-    %% find desirable velocity at each point
-    leglen = sqrt(sum(diff(path).^2,2));
-    des_v = AVGSPEED*ones([npts,1]); % each pt has desited velocity
-    acc_sign = zeros([npts,1]); % accelerating or decelarating?
-    % handle 1st acceleration
-    curr_v = 0;
-    i = 1;
-    while curr_v < AVGSPEED && i <= npts-1
-        des_v(i) = curr_v;
-        t = get_time_cte_acc(leglen(i), curr_v, MAXACC);
-        curr_v = min([curr_v + t*MAXACC, AVGSPEED]);
-        i = i+1;
-    end
-
-    % handle last acceleration
-    curr_v = 0;
-    i = npts;
-    while curr_v < AVGSPEED && i >=2
-        if (des_v(i) < curr_v)
-            break;
+    else
+        % refine trajectory
+        error('not working yet');
+        finepath = [];
+        res = [.5, .5, .5];
+        for i=1:size(path,1)-1
+            v = path(i+1,:) - path(i,:);
+            u = v/norm(v); % unit vector
+                           % we check some points along the line, according to given resolution
+                           % note: if res < margin we use the margin
+            ncells = ceil(norm(abs(v)./res));
+            finepath = [finepath;
+                        bsxfun(@plus, path(i,:), ...
+                               bsxfun(@times, linspace(0,norm(v),ncells)', repmat(u,[ncells,1])))];
         end
-        des_v(i) = min(curr_v, des_v(i));
-        t = get_time_cte_acc(leglen(i-1), curr_v, MAXACC);
-        curr_v = min([curr_v + t*MAXACC, AVGSPEED]);
-        i = i-1;
-    end
+        path = finepath;
 
-    % handle accelerating/breaking around corners
-    for i=2:npts-1
-        back = path(i,:) - path(i-1,:);
-        forw = path(i+1,:) - path(i,:);
-        if dot(back,forw)/norm(back)/norm(forw) < 0.99
-            % radius of turn
-            r = radius_3pts(path(i-1,:), path(i,:), path(i+1,:));
-            curr_v = min(sqrt(MAXACC*r), des_v(i));
 
+        %% find desirable velocity at each point
+        leglen = sqrt(sum(diff(path).^2,2));
+        des_v = AVGSPEED*ones([npts,1]); % each pt has desited velocity
+        acc_sign = zeros([npts,1]); % accelerating or decelarating?
+                                    % handle 1st acceleration
+        curr_v = 0;
+        i = 1;
+        while curr_v < AVGSPEED && i <= npts-1
             des_v(i) = curr_v;
-
-            % walk around corner finding desired velocity
-            j = i-1; % walk left
-            while curr_v < AVGSPEED && j >= 2
-                if (des_v(j) < curr_v)
-                    break;
-                end
-                des_v(j) = min(des_v(j), curr_v);
-                t = get_time_cte_acc(leglen(j-1), curr_v, MAXACC);
-                curr_v = min([curr_v + t*MAXACC, AVGSPEED]);
-                j = j-1;
-            end
-            j = i+1; % walk right
-            curr_v = des_v(i);
-            while curr_v < AVGSPEED && j <= npts
-                if (des_v(j) < curr_v)
-                    break;
-                end
-                des_v(j) = min(des_v(j), curr_v);
-                t = get_time_cte_acc(leglen(j), curr_v, MAXACC);
-                curr_v = min([curr_v + t*MAXACC, AVGSPEED]);
-                j = j+1;
-            end
-
+            t = get_time_cte_acc(leglen(i), curr_v, MAXACC);
+            curr_v = min([curr_v + t*MAXACC, AVGSPEED]);
+            i = i+1;
         end
-    end
 
-    % find desired times given velocities
-    for(i=1:npts-1)
-        des_t(i) = get_time_vel_diff(leglen(i), des_v(i), des_v(i+1));
-        if ~isreal(get_time_vel_diff(leglen(i), des_v(i), des_v(i+1)))
-            error('value not real!');
+        % handle last acceleration
+        curr_v = 0;
+        i = npts;
+        while curr_v < AVGSPEED && i >=2
+            if (des_v(i) < curr_v)
+                break;
+            end
+            des_v(i) = min(curr_v, des_v(i));
+            t = get_time_cte_acc(leglen(i-1), curr_v, MAXACC);
+            curr_v = min([curr_v + t*MAXACC, AVGSPEED]);
+            i = i-1;
         end
+
+        % handle accelerating/breaking around corners
+        for i=2:npts-1
+            back = path(i,:) - path(i-1,:);
+            forw = path(i+1,:) - path(i,:);
+            if dot(back,forw)/norm(back)/norm(forw) < 0.99
+                % radius of turn
+                r = radius_3pts(path(i-1,:), path(i,:), path(i+1,:));
+                curr_v = min(sqrt(MAXACC*r), des_v(i));
+
+                des_v(i) = curr_v;
+
+                % walk around corner finding desired velocity
+                j = i-1; % walk left
+                while curr_v < AVGSPEED && j >= 2
+                    if (des_v(j) < curr_v)
+                        break;
+                    end
+                    des_v(j) = min(des_v(j), curr_v);
+                    t = get_time_cte_acc(leglen(j-1), curr_v, MAXACC);
+                    curr_v = min([curr_v + t*MAXACC, AVGSPEED]);
+                    j = j-1;
+                end
+                j = i+1; % walk right
+                curr_v = des_v(i);
+                while curr_v < AVGSPEED && j <= npts
+                    if (des_v(j) < curr_v)
+                        break;
+                    end
+                    des_v(j) = min(des_v(j), curr_v);
+                    t = get_time_cte_acc(leglen(j), curr_v, MAXACC);
+                    curr_v = min([curr_v + t*MAXACC, AVGSPEED]);
+                    j = j+1;
+                end
+
+            end
+        end
+
+        % find desired timelist given velocities
+        for(i=1:npts-1)
+            des_t(i) = get_time_vel_diff(leglen(i), des_v(i), des_v(i+1));
+            if ~isreal(get_time_vel_diff(leglen(i), des_v(i), des_v(i+1)))
+                error('value not real!');
+            end
+        end
+
+        intervals = des_t';
+
+        % warning: got instability when rounding this
+        %knots_t = ceil(cumsum([0; intervals])/TSTEP)*TSTEP;
+        knots_t = cumsum([0; intervals]);
+        % start and final point are the same, only two points
+        [timelist, pos, vel, acc] = fit_traj(knots_t, path, TSTEP);
     end
-
-    intervals = des_t';
-
-    % warning: got instability when rounding this
-    %knots_t = ceil(cumsum([0; intervals])/TSTEP)*TSTEP;
-    knots_t = cumsum([0; intervals]);
-    % start and final point are the same, only two points
-    [times, pos, vel, acc] = fit_traj(knots_t, path, TSTEP);
 
     % for extrapolation
-    times = [times,times(end)+TSTEP,times(end)+2];
+    timelist = [timelist,timelist(end)+TSTEP,timelist(end)+TEXTRAP];
     pos = [pos; pos(end,:); pos(end,:)];
     vel = [vel; zeros([2,3])];
     acc = [acc; zeros([2,3])];
 
     % edge case where all points are the same -- no movement required.
-    if numel(times) == 1
-        times = [0, 1];
+    if numel(timelist) == 1
+        timelist = [0, 1];
         pos = [path(1:2,:)];
         vel = [0,0,0; 0,0,0];
         acc = [0,0,0; 0,0,0];
@@ -189,17 +203,17 @@ if isempty(t) && isempty(qn)
 
     % debug
     % figure;
-    % subplot(3,1,1); plot(times, pos);
-    % subplot(3,1,2); plot(times, vel);
-    % subplot(3,1,3); plot(times, acc);
+    % subplot(3,1,1); plot(timelist, pos);
+    % subplot(3,1,2); plot(timelist, vel);
+    % subplot(3,1,3); plot(timelist, acc);
     % legend('x', 'y', 'z');
     % figure;
     % plot3(pos(:,1), pos(:,2), pos(:,3), path(:,1), path(:,2), path(:,3));
 else
-    if(~isempty(times))
-        desired_state.pos = interp1(times, pos, t, 'linear', 'extrap')';
-        desired_state.vel = interp1(times, vel, t, 'linear', 'extrap')';
-        desired_state.acc = interp1(times, acc, t, 'linear', 'extrap')';
+    if(~isempty(timelist))
+        desired_state.pos = interp1(timelist, pos, t, 'linear', 'extrap')';
+        desired_state.vel = interp1(timelist, vel, t, 'linear', 'extrap')';
+        desired_state.acc = interp1(timelist, acc, t, 'linear', 'extrap')';
     else
         desired_state.pos = [0;0;0];
         desired_state.vel = [0;0;0];
@@ -211,7 +225,7 @@ end
 
 end
 
-function [times, pos, vel, acc, jer, sna] = fit_traj(knots_t, path, TSTEP)
+function [timelist, pos, vel, acc, jer, sna] = fit_traj(knots_t, path, TSTEP)
     [tx, px, vx, ax, jx, sx] = fit_quintic(path(:,1), knots_t, [0,0], [0,0], TSTEP);
     [ty, py, vy, ay, jy, sy] = fit_quintic(path(:,2), knots_t, [0,0], [0,0], TSTEP);
     [tz, pz, vz, az, jz, sz] = fit_quintic(path(:,3), knots_t, [0,0], [0,0], TSTEP);
@@ -225,7 +239,7 @@ function [times, pos, vel, acc, jer, sna] = fit_traj(knots_t, path, TSTEP)
     acc = [ax', ay', az'];
     jer = [jx', jy', jz'];
     sna = [sx', sy', sz'];
-    times = tx;
+    timelist = tx;
 end
 
 function t = get_time_cte_acc(x, v, a);
