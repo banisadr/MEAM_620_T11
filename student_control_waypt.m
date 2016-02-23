@@ -7,10 +7,9 @@ if (setitM(qn)~=902) %The variable setitM(qn) tracks what type of sequence each 
     %PUT ANY INITIALIZATION HERE
     t0 = tic;
     pos0 = qd{qn}.pos;
-    times = seqM(qn).seq(seq_cntM(qn)).times;
-    pos_des = seqM(qn).seq(seq_cntM(qn)).pos_des;
-    vel_des = seqM(qn).seq(seq_cntM(qn)).vel_des;
-    acc_des = seqM(qn).seq(seq_cntM(qn)).acc_des;
+    path = [pos0; 1,1,1];
+    % generate trajectory
+    [times, pos_des, vel_des, acc_des] = trajectory_generator([], [], [], {path});
     %END INTITIALIZATION
 
 end %everything beyond this point runs every control loop iteration

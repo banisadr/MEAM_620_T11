@@ -6,7 +6,7 @@ if (setitM(qn)~=901) %The variable setitM(qn) tracks what type of sequence each 
     
     %PUT ANY INITIALIZATION HERE
     pos0 = qd{qn}.pos;
-    pos_des = pos0 + [0,0,seqM(qn).seq(seq_cntM(qn)).hoverheigth];
+    pos_des = pos0 + [0,0,seqM(qn).seq(seq_cntM(qn)).hoverheight];
     t0 = tic;     % initial time
     %END INTITIALIZATION
 

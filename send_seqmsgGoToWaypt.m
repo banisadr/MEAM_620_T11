@@ -18,13 +18,11 @@ for c=1:numquads
     
     %PUT OTHER FIELDS HERE
     % hardcode startpoint and waypoint here:
-    path = [0,0,0; 1,1,1];
-    % generate trajectory
-    [times, pos, vel, acc] = trajectory_generator([], [], [], {path});
-    seq(end).times = times;
-    seq(end).pos_des = pos;
-    seq(end).vel_des = vel;
-    seq(end).acc_des = acc;
+
+    %seq(end).times = times;
+    %seq(end).pos_des = pos;
+    %seq(end).vel_des = vel;
+    %seq(end).acc_des = acc;
     %END OTHER FIELDS HERE
     
     seqM(c).seq = seq; %the variable seqM is a struct with metadata about the sequence
