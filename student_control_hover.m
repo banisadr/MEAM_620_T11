@@ -18,5 +18,10 @@ t = toc - t0;
 
 % The desired_state is set in the trajectory generator
 qd{qn}.pos_des      = pos_des;
+qd{qn}.vel_des      = 0;
+qd{qn}.acc_des      = 0;
+qd{qn}.yaw_des      = 0;
+qd{qn}.yawdot_des   = 0;
+
 [F, M, trpy, drpy] = controller(qd, t, qn, []);
 qd{qn}.euler_des = trpy(2:end);

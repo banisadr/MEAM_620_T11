@@ -8,13 +8,9 @@ if (setitM(qn)~=903) %The variable setitM(qn) tracks what type of sequence each 
     t0 = GetUnixTime;
     pos0 = qd{qn}.pos;
     load('/home/meam620group11/matlab/test_waypoints/test_waypts_2.mat');
-    path = [pos0';waypts];
+    path = [pos0'; waypts];
     
     [times, pos_des, vel_des, acc_des] = trajectory_generator([], [], [], {path});
-%     times = seqM(qn).seq(seq_cntM(qn)).times;
-%     pos_des = seqM(qn).seq(seq_cntM(qn)).pos_des;
-%     vel_des = seqM(qn).seq(seq_cntM(qn)).vel_des;
-%     acc_des = seqM(qn).seq(seq_cntM(qn)).acc_des;
     %END INTITIALIZATION
 
 end %everything beyond this point runs every control loop iteration
@@ -23,7 +19,6 @@ end %everything beyond this point runs every control loop iteration
 t = GetUnixTime - t0;
 
 % get desired state
-% checkme! add pos0 here???
 qd{qn}.pos_des = interp1(times, pos_des, t, 'linear', 'extrap')';
 qd{qn}.vel_des = interp1(times, vel_des, t, 'linear', 'extrap')';
 qd{qn}.acc_des = interp1(times, acc_des, t, 'linear', 'extrap')';
