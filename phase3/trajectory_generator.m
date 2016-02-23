@@ -1,4 +1,4 @@
-function [timelist, pos, vel, acc] = trajectory_generator(t, qn, map, path)
+function [timelist, pos, vel, acc] = trajectory_generator(path, simple_traj, target_acc)
 % TRAJECTORY_GENERATOR: Turn a Dijkstra or A* path into a trajectory
 %
 % NOTE: This function would be called with variable number of input
@@ -20,29 +20,28 @@ function [timelist, pos, vel, acc] = trajectory_generator(t, qn, map, path)
 
 % pairwise quintic; start and stop at end of each leg
 % WARNING: djikstra.m must also have this option on!!!
-SIMPLE_TRAJ = true;
-AVGSPEED = 10;
-MAXACC = 3; % passed all tests with 4
-TSTEP = 1e-2; % to store traj
-TEXTRAP = 600; % how long to maintain last command
-EPS = 1e-6;
 
-if isempty(t) && isempty(qn)
-    % init call
-    map0 = map;
-    path0 = path;
+    if exist('simple_traj') ~= 1
+        simple_traj = false;
+    end
+    if exist('target_acc') ~= 1
+        target_acc = 2;
+    end
+
+    AVGSPEED = 10;
+    TSTEP = 1e-2; % to store traj
+    TEXTRAP = 600; % how long to maintain last command
+    EPS = 1e-6;
 
     timelist = [];
     pos = [];
     vel = [];
     acc = [];
 
-    path = path{1};
-
     if isempty(path)
         return;
     elseif size(path,1) == 1
-        timelist = [0, 1];
+        timelist = [0, TEXTRAP];
         pos = [path; path];
         vel = [0,0,0; 0,0,0];
         acc = [0,0,0; 0,0,0];
@@ -50,9 +49,8 @@ if isempty(t) && isempty(qn)
     end
 
     %% simpler trajectory: start/stop at each point
-    if SIMPLE_TRAJ
+    if simple_traj
         MINSPEED = .1;
-        MAXACC = 4;
         ACCMARGIN = 0.1;
         for(i=1:size(path,1)-1)
             % find bst time to cover this leg
@@ -64,9 +62,9 @@ if isempty(t) && isempty(qn)
                 T = ceil(T/TSTEP)*TSTEP; % round to TSTEP
                 [curr_t, curr_p, curr_v, curr_a] = fit_traj([0,T], [path(i,:); path(i+1,:)], TSTEP);
                 accT = max(sqrt(sum(curr_a.^2,2)));
-                if accT > MAXACC + ACCMARGIN
+                if accT > target_acc + ACCMARGIN
                     tlim(1) = T;
-                elseif accT < MAXACC - ACCMARGIN
+                elseif accT < target_acc - ACCMARGIN
                     tlim(2) = T;
                 else
                     converged = true;
@@ -88,9 +86,9 @@ if isempty(t) && isempty(qn)
         end
     else
         % refine trajectory
-        %error('not working yet');
+        % TODO: is this necessary?
         finepath = [];
-        res = [.5, .5, .5];
+        res = [.3, .3, .3];
         for i=1:size(path,1)-1
             v = path(i+1,:) - path(i,:);
             u = v/norm(v); % unit vector
@@ -101,6 +99,8 @@ if isempty(t) && isempty(qn)
                         bsxfun(@plus, path(i,:), ...
                                bsxfun(@times, linspace(norm(v)/ncells,norm(v),ncells)', repmat(u,[ncells,1])))];
         end
+        % CHECKME: the refinement is generating ragged trajectories
+        % TODO: only refine if waypoints are coarse or don't refine at all.
         path = finepath;
 
         %% find desirable velocity at each point
@@ -113,8 +113,8 @@ if isempty(t) && isempty(qn)
         i = 1;
         while curr_v < AVGSPEED && i <= npts-1
             des_v(i) = curr_v;
-            t = get_time_cte_acc(leglen(i), curr_v, MAXACC);
-            curr_v = min([curr_v + t*MAXACC, AVGSPEED]);
+            t = get_time_cte_acc(leglen(i), curr_v, target_acc);
+            curr_v = min([curr_v + t*target_acc, AVGSPEED]);
             i = i+1;
         end
 
@@ -126,8 +126,8 @@ if isempty(t) && isempty(qn)
                 break;
             end
             des_v(i) = min(curr_v, des_v(i));
-            t = get_time_cte_acc(leglen(i-1), curr_v, MAXACC);
-            curr_v = min([curr_v + t*MAXACC, AVGSPEED]);
+            t = get_time_cte_acc(leglen(i-1), curr_v, target_acc);
+            curr_v = min([curr_v + t*target_acc, AVGSPEED]);
             i = i-1;
         end
 
@@ -138,7 +138,7 @@ if isempty(t) && isempty(qn)
             if dot(back,forw)/norm(back)/norm(forw) < 0.99
                 % radius of turn
                 r = radius_3pts(path(i-1,:), path(i,:), path(i+1,:));
-                curr_v = min(sqrt(MAXACC*r), des_v(i));
+                curr_v = min(sqrt(target_acc*r), des_v(i));
 
                 des_v(i) = curr_v;
 
@@ -149,8 +149,8 @@ if isempty(t) && isempty(qn)
                         break;
                     end
                     des_v(j) = min(des_v(j), curr_v);
-                    t = get_time_cte_acc(leglen(j-1), curr_v, MAXACC);
-                    curr_v = min([curr_v + t*MAXACC, AVGSPEED]);
+                    t = get_time_cte_acc(leglen(j-1), curr_v, target_acc);
+                    curr_v = min([curr_v + t*target_acc, AVGSPEED]);
                     j = j-1;
                 end
                 j = i+1; % walk right
@@ -160,8 +160,8 @@ if isempty(t) && isempty(qn)
                         break;
                     end
                     des_v(j) = min(des_v(j), curr_v);
-                    t = get_time_cte_acc(leglen(j), curr_v, MAXACC);
-                    curr_v = min([curr_v + t*MAXACC, AVGSPEED]);
+                    t = get_time_cte_acc(leglen(j), curr_v, target_acc);
+                    curr_v = min([curr_v + t*target_acc, AVGSPEED]);
                     j = j+1;
                 end
 
@@ -170,8 +170,8 @@ if isempty(t) && isempty(qn)
 
         % find desired timelist given velocities
         for(i=1:npts-1)
-            des_t(i) = get_time_vel_diff(leglen(i), des_v(i), des_v(i+1));
-            if ~isreal(get_time_vel_diff(leglen(i), des_v(i), des_v(i+1)))
+            des_t(i) = get_time_vel_diff(leglen(i), des_v(i), des_v(i+1), target_acc);
+            if ~isreal(get_time_vel_diff(leglen(i), des_v(i), des_v(i+1), target_acc))
                 error('value not real!');
             end
         end
@@ -207,20 +207,6 @@ if isempty(t) && isempty(qn)
     % legend('x', 'y', 'z');
     % figure;
     % plot3(pos(:,1), pos(:,2), pos(:,3), path(:,1), path(:,2), path(:,3));
-else
-    if(~isempty(timelist))
-        desired_state.pos = interp1(timelist, pos, t, 'linear', 'extrap')';
-        desired_state.vel = interp1(timelist, vel, t, 'linear', 'extrap')';
-        desired_state.acc = interp1(timelist, acc, t, 'linear', 'extrap')';
-    else
-        desired_state.pos = [0;0;0];
-        desired_state.vel = [0;0;0];
-        desired_state.acc = [0;0;0];
-    end
-    desired_state.yaw = 0;
-    desired_state.yawdot = 0;
-end
-
 end
 
 function [timelist, pos, vel, acc, jer, sna] = fit_traj(knots_t, path, TSTEP)
@@ -242,33 +228,36 @@ end
 
 function t = get_time_cte_acc(x, v, a);
 % compute time to cover distance X at contant acceleration A starting with velocity V
-  % some tiny imaginary part may appear due to numerical errors
-  t = real(roots([a/2, v, -x]));
-  assert(~all(t < 0));
-  t = min(t(t >= 0));
+% some tiny imaginary part may appear due to numerical errors
+    t = real(roots([a/2, v, -x]));
+    assert(~all(t < 0));
+    t = min(t(t >= 0));
 end
 
-function t = get_time_vel_diff(x, v1, v2);
+function t = get_time_vel_diff(x, v1, v2, target_acc);
 % compute time to cover distance X at constant acceleration A starting with velocity V
-  MAXACC = 3;
-  EPS = 1e-6;
+    EPS = 1e-6;
 
-  if v1 < EPS && v2 < EPS
-      t = sqrt(4*x/MAXACC);
-      return;
-  end
-  a = (v2^2-v1^2)/2/x;
-  t = get_time_cte_acc(x, v1, a);
+    if v1 < EPS && v2 < EPS
+        t = sqrt(4*x/target_acc);
+        return;
+    end
+    if abs(x) < EPS
+        t = 0;
+    else
+        a = (v2^2-v1^2)/2/x;
+        t = get_time_cte_acc(x, v1, a);
+    end
 end
 
 
 function r = radius_3pts(p1, p2, p3)
 % radius of circle between 3 points is product of sides over 4 times the area
 % see: http://www.mathworks.com/matlabcentral/newsreader/view_thread/128429
-  a = norm(p1-p2);
-  b = norm(p1-p3);
-  c = norm(p2-p3);
-  s = (a+b+c)/2;
-  A = sqrt(s*(s-a)*(s-b)*(s-c)); % Area of triangle
-  r = a*b*c/(4*A); % Radius of circumscribing circle
+    a = norm(p1-p2);
+    b = norm(p1-p3);
+    c = norm(p2-p3);
+    s = (a+b+c)/2;
+    A = sqrt(s*(s-a)*(s-b)*(s-c)); % Area of triangle
+    r = a*b*c/(4*A); % Radius of circumscribing circle
 end

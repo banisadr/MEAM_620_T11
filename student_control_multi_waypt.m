@@ -10,7 +10,7 @@ if (setitM(qn)~=903) %The variable setitM(qn) tracks what type of sequence each 
     load('/home/meam620group11/matlab/test_waypoints/test_waypts_2.mat');
     path = [pos0'; waypts];
     
-    [times, pos_des, vel_des, acc_des] = trajectory_generator([], [], [], {path});
+    [times, pos_des, vel_des, acc_des] = trajectory_generator(path, SIMPLE_TRAJ, TARGET_ACC);
     %END INTITIALIZATION
 
 end %everything beyond this point runs every control loop iteration
