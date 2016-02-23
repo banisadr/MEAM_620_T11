@@ -15,7 +15,7 @@ PROJECT_ERROR = false;
 % valid types: pd-linear, pd-nonlinear, lqr
 ctr_type = 'pd-nonlinear';
 
-m = 0.176;
+m = params.mass;
 g = 9.81;
 
 % angular controller gains, to compute desired momentum

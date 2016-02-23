@@ -23,5 +23,5 @@ qd{qn}.acc_des      = 0;
 qd{qn}.yaw_des      = 0;
 qd{qn}.yawdot_des   = 0;
 
-[F, M, trpy, drpy] = controller(qd, t, qn, []);
+[F, M, trpy, drpy] = controller(qd, t, qn, struct('mass', MASS));
 qd{qn}.euler_des = trpy(2:end);
