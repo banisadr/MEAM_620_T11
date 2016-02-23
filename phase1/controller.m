@@ -112,6 +112,10 @@ elseif strcmp(ctr_type, 'pd-nonlinear')
     M    = [kpang(1)*err_phi + kdang(1)*(0 - omega(1));
             kpang(2)*err_theta + kdang(2)*(0 - omega(2));
             kpang(3)*(yaw_des - euler(3)) + kdang(3)*(yawdot_des - omega(3))];
+
+    % checkme!
+    phi_des = err_phi + euler(1);
+    theta_des = err_theta + euler(2);
 elseif strcmp(ctr_type, 'lqr')
     acc_cmd = acc_des + Klqr(1,4)*ev + Klqr(1,3)*ep;
     % Desired roll, pitch and yaw
@@ -131,8 +135,8 @@ end
 % =================== Your code ends here ===================
 
 % Output trpy and drpy as in hardware
-trpy = [0, 0, 0, 0];
-%trpy = [F, phi_des, theta_des, yaw_des];
+% note conversion of F to gram
+trpy = [F/g*1000, phi_des, theta_des, yaw_des];
 drpy = [0, 0,       0,         0];
 
 end
