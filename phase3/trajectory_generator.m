@@ -39,8 +39,6 @@ if isempty(t) && isempty(qn)
 
     path = path{1};
 
-    npts = size(path,1);
-
     if isempty(path)
         return;
     elseif size(path,1) == 1
@@ -90,7 +88,7 @@ if isempty(t) && isempty(qn)
         end
     else
         % refine trajectory
-        error('not working yet');
+        %error('not working yet');
         finepath = [];
         res = [.5, .5, .5];
         for i=1:size(path,1)-1
@@ -101,12 +99,12 @@ if isempty(t) && isempty(qn)
             ncells = ceil(norm(abs(v)./res));
             finepath = [finepath;
                         bsxfun(@plus, path(i,:), ...
-                               bsxfun(@times, linspace(0,norm(v),ncells)', repmat(u,[ncells,1])))];
+                               bsxfun(@times, linspace(norm(v)/ncells,norm(v),ncells)', repmat(u,[ncells,1])))];
         end
         path = finepath;
 
-
         %% find desirable velocity at each point
+        npts = size(path,1);
         leglen = sqrt(sum(diff(path).^2,2));
         des_v = AVGSPEED*ones([npts,1]); % each pt has desited velocity
         acc_sign = zeros([npts,1]); % accelerating or decelarating?
