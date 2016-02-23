@@ -20,7 +20,7 @@ function [timelist, pos, vel, acc] = trajectory_generator(t, qn, map, path)
 
 % pairwise quintic; start and stop at end of each leg
 % WARNING: djikstra.m must also have this option on!!!
-SIMPLE_TRAJ = false;
+SIMPLE_TRAJ = true;
 AVGSPEED = 10;
 MAXACC = 3; % passed all tests with 4
 TSTEP = 1e-2; % to store traj
