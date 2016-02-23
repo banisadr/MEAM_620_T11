@@ -18,13 +18,13 @@ for c=1:numquads
     
     %PUT OTHER FIELDS HERE
     % TODO: read waypoints from matfile here!
-    path = [];
-    % generate trajectory
-    [times, pos, vel, acc] = trajectory_generator([], [], [], {path});
-    seq(end).times = times;
-    seq(end).pos_des = pos;
-    seq(end).vel_des = vel;
-    seq(end).acc_des = acc;
+%     path = [];
+%     % generate trajectory
+%     [times, pos, vel, acc] = trajectory_generator([], [], [], {path});
+%     seq(end).times = times;
+%     seq(end).pos_des = pos;
+%     seq(end).vel_des = vel;
+%     seq(end).acc_des = acc;
     %END OTHER FIELDS HERE
     
     seqM(c).seq = seq; %the variable seqM is a struct with metadata about the sequence

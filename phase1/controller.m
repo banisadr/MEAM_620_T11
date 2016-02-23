@@ -39,8 +39,8 @@ omega = qd{qn}.omega;
 pos_des = qd{qn}.pos_des;
 vel_des = qd{qn}.vel_des;
 acc_des = qd{qn}.acc_des;
-yaw_des = qd{qn}.yaw_des;
-yawdot_des = qd{qn}.yawdot_des;
+yaw_des = 0;
+yawdot_des = 0;
 
 ep = pos_des-pos; % position error
 % ignore position errors on tangent direction
