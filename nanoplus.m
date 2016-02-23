@@ -3,7 +3,7 @@ function params = nanoplus()
 %   nanoplus outputs the basic parameters (mass, gravity and inertia) of
 %   the quadrotor nanoplus
 
-m = 0.176; %kg: nanoplus without gumstix and camera
+m = 0.230; %0.176; %kg: nanoplus without gumstix and camera
 g = 9.81;
 I = [0.00025,   0,          2.55e-6;
      0,         0.000232,   0;
