@@ -1,25 +1,11 @@
-function [timelist, pos, vel, acc] = trajectory_generator(path, simple_traj, target_acc)
+function [timelist, pos, vel, acc] = trajectory_generator(path, simple_traj, target_acc, max_waypt_dist)
 % TRAJECTORY_GENERATOR: Turn a Dijkstra or A* path into a trajectory
 %
-% NOTE: This function would be called with variable number of input
-% arguments. In init_script, it will be called with arguments
-% trajectory_generator([], [], map, path) and later, in test_trajectory,
-% it will be called with only t and qn as arguments, so your code should
-% be able to handle that. This can be done by checking the number of
-% arguments to the function using the "nargin" variable, check the
-% MATLAB documentation for more information.
-%
-% map: The map structure returned by your load_map function
-% path: This is the path returned by your planner (dijkstra function)
-%
-% desired_state: Contains all the information that is passed to the
-% controller, as in phase 2
-%
-% It is suggested to use "persistent" variables to store map and path
-% during the initialization call of trajectory_generator, e.g.
-
-% pairwise quintic; start and stop at end of each leg
-% WARNING: djikstra.m must also have this option on!!!
+% path: n x 3
+% simple_traj: when true, stop at each waypoint
+% target_acc: target max acceleration to follow; actual acceleration commanded may be higher than this but only for short periods
+% max_waypt_dist: if > 0, create intermediate waypoints so that distances are at most this value of each other
+% timelist, pos, vel, acc: desired trajectory
 
     if exist('simple_traj') ~= 1
         simple_traj = false;
@@ -86,22 +72,25 @@ function [timelist, pos, vel, acc] = trajectory_generator(path, simple_traj, tar
         end
     else
         % refine trajectory
-        % TODO: is this necessary?
-        finepath = [];
-        res = [.3, .3, .3];
-        for i=1:size(path,1)-1
-            v = path(i+1,:) - path(i,:);
-            u = v/norm(v); % unit vector
-                           % we check some points along the line, according to given resolution
-                           % note: if res < margin we use the margin
-            ncells = ceil(norm(abs(v)./res));
-            finepath = [finepath;
-                        bsxfun(@plus, path(i,:), ...
-                               bsxfun(@times, linspace(norm(v)/ncells,norm(v),ncells)', repmat(u,[ncells,1])))];
+        if max_waypt_dist > 0
+            finepath = path(1,:);
+            for i=1:size(path,1)-1
+                v = path(i+1,:) - path(i,:);
+                % ignore repeated points
+                if norm(v) < EPS
+                    continue;
+                end
+                u = v/norm(v); % unit vector
+                % we add some points along the line, according to given resolution
+                ncells = ceil(norm(v)/max_waypt_dist);
+                finepath = [finepath;
+                            bsxfun(@plus, path(i,:), ...
+                                   bsxfun(@times, ...
+                                          linspace(norm(v)/ncells,norm(v),ncells)', ...
+                                          repmat(u,[ncells,1])))];
+            end
+            path = finepath;
         end
-        % CHECKME: the refinement is generating ragged trajectories
-        % TODO: only refine if waypoints are coarse or don't refine at all.
-        path = finepath;
 
         %% find desirable velocity at each point
         npts = size(path,1);
@@ -227,7 +216,7 @@ function [timelist, pos, vel, acc, jer, sna] = fit_traj(knots_t, path, TSTEP)
 end
 
 function t = get_time_cte_acc(x, v, a);
-% compute time to cover distance X at contant acceleration A starting with velocity V
+% compute time to cover distance X at constant acceleration A starting with velocity V
 % some tiny imaginary part may appear due to numerical errors
     t = real(roots([a/2, v, -x]));
     assert(~all(t < 0));

@@ -8,7 +8,7 @@
 % You need to implement trajhandle and controlhandle
 
 % trajectory generator
-[times, pos_des, vel_des, acc_des] = trajectory_generator(path, SIMPLE_TRAJ, TARGET_ACC);
+[times, pos_des, vel_des, acc_des] = trajectory_generator(path, SIMPLE_TRAJ, TARGET_ACC, MAX_WAYPT_DIST);
 trajhandle = @(t,qn)traj_interp(t, times, pos_des, vel_des, acc_des);
 % controller
 controlhandle = @(qd,t,qn,params)controller(qd,t,qn, struct('mass', MASS));
