@@ -9,7 +9,7 @@ if (setitM(qn)~=902) %The variable setitM(qn) tracks what type of sequence each 
     pos0 = qd{qn}.pos;
 
     path = [pos0';pos0'+[1 1 1];pos0'];
-    [times, pos_des, vel_des, acc_des] = trajectory_generator(path, SIMPLE_TRAJ, TARGET_ACC);
+    [times, pos_des, vel_des, acc_des] = trajectory_generator(path, SIMPLE_TRAJ, TARGET_ACC, MAX_WAYPT_DIST);
     %END INTITIALIZATION
 
 end %everything beyond this point runs every control loop iteration

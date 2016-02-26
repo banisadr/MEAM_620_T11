@@ -13,6 +13,9 @@ function [timelist, pos, vel, acc] = trajectory_generator(path, simple_traj, tar
     if exist('target_acc') ~= 1
         target_acc = 2;
     end
+    if exist('max_waypt_dist') ~= 1
+        max_waypt_dist = 0;
+    end
     if exist('show_plots') ~= 1
         show_plots = false;
     end
