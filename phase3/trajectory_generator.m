@@ -108,12 +108,29 @@ function [timelist, pos, vel, acc] = trajectory_generator(path, simple_traj, tar
             path = finepath;
         end
 
-        %% find desirable velocity at each point
+        % handle special case where traj goes to some point and back via the same line
+        % we can't fit a circle on 3 colinear points, so we add another point to make a smooth curve
+        i=2;
+        while i<=size(path,1)-1
+            back = path(i,:) - path(i-1,:);
+            forw = path(i+1,:) - path(i,:);
+            % the point added is the sum of same-length parallel and perpendicular
+            % components w.r.t the desired forward vector
+            if dot(back,forw)/norm(back)/norm(forw) < -0.99
+                path = [path(1:i, :);
+                        path(i,:) + forw/2 + [-forw(2), forw(1), forw(3)]/2;
+                        path(i+1:end,:)];
+            end
+            i=i+1;
+        end
+
         npts = size(path,1);
         leglen = sqrt(sum(diff(path).^2,2));
         des_v = AVGSPEED*ones([npts,1]); % each pt has desited velocity
         acc_sign = zeros([npts,1]); % accelerating or decelarating?
                                     % handle 1st acceleration
+
+        %% find desirable velocity at each point
         curr_v = 0;
         i = 1;
         while curr_v < AVGSPEED && i <= npts-1
