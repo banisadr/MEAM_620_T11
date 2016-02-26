@@ -16,4 +16,4 @@ SIMPLE_TRAJ = false;
 MAX_WAYPT_DIST = 0;
 
 % target acceleration for trajectory. 4 is very agressive.
-TARGET_ACC = 4;
+TARGET_ACC = 3;
