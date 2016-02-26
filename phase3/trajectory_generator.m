@@ -260,15 +260,18 @@ function t = get_time_cte_acc(x, v, a);
 end
 
 function t = get_time_vel_diff(x, v1, v2, target_acc);
-% compute time to cover distance X at constant acceleration A starting with velocity V
+% compute time to cover distance X at constant acceleration A starting with velocity V1 and finishing at V2
     EPS = 1e-6;
 
+    % this happens when the trajectory is a single leg
     if v1 < EPS && v2 < EPS
         t = sqrt(4*x/target_acc);
         return;
     end
+
     if abs(x) < EPS
-        t = 0;
+        % this may happen with repeated points in trajectory
+        t = (v2 - v1)/target_acc;
     else
         a = (v2^2-v1^2)/2/x;
         t = get_time_cte_acc(x, v1, a);
