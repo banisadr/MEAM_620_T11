@@ -16,4 +16,8 @@ SIMPLE_TRAJ = false;
 MAX_WAYPT_DIST = 0;
 
 % target acceleration for trajectory. 4 is very agressive.
-TARGET_ACC = 3;
+TARGET_ACC = 2;
+
+% load('/home/meam620group11/matlab/test_waypoints/test_waypts_3.mat');
+%     
+% [times, pos_des, vel_des, acc_des] = trajectory_generator(waypts, SIMPLE_TRAJ, TARGET_ACC, MAX_WAYPT_DIST);
