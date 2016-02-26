@@ -1,4 +1,4 @@
-function [timelist, pos, vel, acc] = trajectory_generator(path, simple_traj, target_acc, max_waypt_dist)
+function [timelist, pos, vel, acc] = trajectory_generator(path, simple_traj, target_acc, max_waypt_dist, show_plots)
 % TRAJECTORY_GENERATOR: Turn a Dijkstra or A* path into a trajectory
 %
 % path: n x 3
@@ -12,6 +12,9 @@ function [timelist, pos, vel, acc] = trajectory_generator(path, simple_traj, tar
     end
     if exist('target_acc') ~= 1
         target_acc = 2;
+    end
+    if exist('show_plots') ~= 1
+        show_plots = false;
     end
 
     AVGSPEED = 10;
@@ -201,14 +204,17 @@ function [timelist, pos, vel, acc] = trajectory_generator(path, simple_traj, tar
         acc = [0,0,0; 0,0,0];
     end
 
-    % debug
-    % figure;
-    % subplot(3,1,1); plot(timelist, pos);
-    % subplot(3,1,2); plot(timelist, vel);
-    % subplot(3,1,3); plot(timelist, acc);
-    % legend('x', 'y', 'z');
-    % figure;
-    % plot3(pos(:,1), pos(:,2), pos(:,3), path(:,1), path(:,2), path(:,3));
+    if show_plots
+        idx = 1:(length(timelist)-1);
+        figure;
+        subplot(3,1,1); plot(timelist(idx), pos(idx,:)); grid; title('pos');
+        subplot(3,1,2); plot(timelist(idx), vel(idx,:)); grid; title('vel');
+        subplot(3,1,3); plot(timelist(idx), acc(idx,:)); grid; title('acc');
+        legend('x', 'y', 'z');
+        figure;
+        plot3(pos(:,1), pos(:,2), pos(:,3), path(:,1), path(:,2), path(:,3)); grid;
+        legend('planned', 'desired');
+    end
 end
 
 function [timelist, pos, vel, acc, jer, sna] = fit_traj(knots_t, path, TSTEP)
