@@ -24,6 +24,19 @@ function [timelist, pos, vel, acc] = trajectory_generator(path, simple_traj, tar
     vel = [];
     acc = [];
 
+    %% remove repeated points from path
+    i=1;
+    while (i <= size(path,1)-1)
+        % find bst time to cover this leg
+        len = norm(path(i+1,:)-path(i,:));
+        if len < EPS
+            path(i+1, :) = [];
+            i=i-1;
+        end
+        i=i+1;
+    end
+
+    %% handle empty and 1 point paths
     if isempty(path)
         return;
     elseif size(path,1) == 1
