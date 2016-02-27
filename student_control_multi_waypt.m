@@ -7,7 +7,7 @@ if (setitM(qn)~=903) %The variable setitM(qn) tracks what type of sequence each 
     %PUT ANY INITIALIZATION HERE
     t0 = GetUnixTime;
     pos0 = qd{qn}.pos;
-    load('/home/meam620group11/matlab/test_waypoints/test_waypts_2.mat');
+    load('/home/meam620group11/matlab/test_waypoints/test_waypts_3.mat');
     path = [pos0'; waypts];
     
     [times, pos_des, vel_des, acc_des] = trajectory_generator(path, SIMPLE_TRAJ, TARGET_ACC, MAX_WAYPT_DIST);

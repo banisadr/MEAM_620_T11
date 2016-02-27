@@ -8,6 +8,7 @@ close all
 QCdir = getenv('QC_ROOT_PATH');
 addpath(strcat(QCdir,'/matlab/init/'))
 init_exp21
+init_phase4
 
 for j=1:num
     %update the timer
